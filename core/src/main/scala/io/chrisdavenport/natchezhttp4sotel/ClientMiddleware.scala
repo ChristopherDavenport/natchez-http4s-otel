@@ -18,6 +18,7 @@ import org.typelevel.otel4s.trace.Span
 import org.typelevel.otel4s.{TextMapPropagator, TextMapSetter}
 import org.typelevel.vault.Vault
 import cats.mtl.Local
+import org.typelevel.otel4s.trace.SpanKind
 
 object ClientMiddleware {
 
@@ -78,7 +79,7 @@ object ClientMiddleware {
               ended <- Resource.eval(Deferred[F, Unit])
 
               _ <- {
-                Tracer[F].span(clientSpanName(req)).use{span =>
+                Tracer[F].spanBuilder(clientSpanName(req)).withSpanKind(SpanKind.Client).build.use{span =>
                   Local[F, Vault].ask.flatMap{ vault =>
                     clientContext.complete(vault -> span)
                   } >> ended.get
@@ -142,7 +143,7 @@ object ClientMiddleware {
   }
   def request[F[_]](request: Request[F], headers: Set[CIString], includeUrl: Request[F] => Boolean): List[Attribute[_]] = {
     val builder = new ListBuffer[Attribute[_]]()
-    builder += OTHttpTags.Common.kind("client")
+    // builder += OTHttpTags.Common.kind("client")
     builder += OTHttpTags.Common.method(request.method)
     if (includeUrl(request)) {
       builder += OTHttpTags.Common.url(request.uri)

@@ -13,7 +13,7 @@ import io.chrisdavenport.natchezhttp4sotel.helpers.printStackTrace
 
 object OTHttpTags {
   object Common {
-    def kind(kind: String): Attribute[String] = Attribute("span.kind" , kind)
+    // def kind(kind: String): Attribute[String] = Attribute("span.kind" , kind)
     def method(m: Method): Attribute[String] = Attribute("http.method" , m.name)
     def url(url: Uri): Attribute[String] = Attribute("http.url" , url.renderString)
     def target(url: Uri): Attribute[String] = Attribute("http.target" , url.copy(scheme = None, authority = None).renderString)

@@ -20,6 +20,7 @@ import org.typelevel.otel4s.trace.SpanContext
 import scodec.bits.ByteVector
 import org.typelevel.otel4s.trace.SamplingDecision
 import cats.effect.kernel.CancelScope.Uncancelable
+import org.typelevel.otel4s.trace.SpanKind
 
 object ServerMiddleware {
 
@@ -84,7 +85,8 @@ object ServerMiddleware {
             val init = request(req, reqHeaders, routeClassifier, includeUrl) ++ additionalRequestTags(req)
             MonadCancelThrow[G].uncancelable( poll =>
               Tracer[G].joinOrRoot(req.headers){
-                Tracer[G].span(serverSpanName(req), init:_*).use{span =>
+                Tracer[G].spanBuilder(serverSpanName(req)).withSpanKind(SpanKind.Server).build.use{span =>
+                  span.addAttributes(init:_*) >>
                   poll(f.run(req))
                     .guaranteeCase{
                       case Outcome.Succeeded(fa) =>
@@ -129,7 +131,6 @@ object ServerMiddleware {
 
   def request[F[_]](request: Request[F], headers: Set[CIString], routeClassifier: Request[F] => Option[String], includeUrl: Request[F] => Boolean): List[Attribute[_]] = {
     val builder = new ListBuffer[Attribute[_]]()
-    builder += OTHttpTags.Common.kind("server")
     builder += OTHttpTags.Common.method(request.method)
     if (includeUrl(request)) {
       builder += OTHttpTags.Common.url(request.uri)

@@ -10,14 +10,21 @@ import org.http4s.implicits._
 import io.chrisdavenport.natchezhttp4sotel._
 import com.comcast.ip4s._
 
-import io.opentelemetry.api.GlobalOpenTelemetry
 import org.typelevel.otel4s.Attribute
 import org.typelevel.otel4s.Otel4s
-import org.typelevel.otel4s.java.OtelJava
 import org.typelevel.otel4s.trace.Tracer
 import org.typelevel.otel4s.TextMapPropagator
 import org.typelevel.vault.Vault
 import cats.mtl.Local
+
+import io.opentelemetry.api.GlobalOpenTelemetry
+import org.typelevel.otel4s.java.OtelJava
+
+import cats.effect.std.{Console, Random}
+// import io.chrisdavenport.otel4slocal.LocalOtel4s
+// import io.chrisdavenport.otel4slocal.otel.Http4sGrpcOtel
+// import org.http4s.implicits._
+import fs2.io.net.Network
 
 /**
  * Start up Jaeger thus:
@@ -38,13 +45,21 @@ import cats.mtl.Local
 */
 object Http4sExample extends IOApp with Common {
 
-  def globalOtel4s[F[_]: Async: LiftIO]: F[(Otel4s[F], Local[F, Vault])] =
-    Sync[F].delay(GlobalOpenTelemetry.get)
+
+
+  def globalOtel4s[F[_]: LiftIO: Console: Temporal: Random : Async : Network]: Resource[F, (Otel4s[F], Local[F, Vault])] = {
+    Resource.eval(Sync[F].delay(GlobalOpenTelemetry.get))
       .flatMap{ jOtel =>
-        ExternalHelpers.localVault.map( local =>
-          OtelJava.local[F](jOtel)(Async[F], local) -> local
+        Resource.eval(ExternalHelpers.localVault[F]).flatMap( local =>
+          // io.chrisdavenport.otel4slocal.LocalOtel4s.build(local, {(s: fs2.Stream[F, io.chrisdavenport.otel4slocal.trace.LocalSpan]) => s.evalMap{ls => Console[F].println(ls)}.compile.drain})
+          // Http4sGrpcOtel.fromLocal(local, uri"http://localhost:4317")
+            // .tupleRight(local)
+          Resource.pure(
+            OtelJava.local[F](jOtel)(Async[F], local) -> local
+          )
         )
       }
+    }
 
   def tracer[F[_]](otel: Otel4s[F]): F[Tracer[F]] =
     otel.tracerProvider.tracer("Http4sExample").get
@@ -65,8 +80,8 @@ object Http4sExample extends IOApp with Common {
     } yield sv
 
   // Done!
-  def run(args: List[String]): IO[ExitCode] =
-    Resource.eval(globalOtel4s[IO]).flatMap{
+  def run(args: List[String]): IO[ExitCode] = Random.scalaUtilRandom[IO].flatMap{ implicit R: Random[IO] =>
+    globalOtel4s[IO].flatMap{
       case (otel4s, local) =>
         implicit val L: Local[IO, Vault] = local
         Resource.eval(tracer(otel4s)).flatMap{ implicit T: Tracer[IO] =>
@@ -74,5 +89,6 @@ object Http4sExample extends IOApp with Common {
           server[IO]
         }
     }.use(_ => IO.never)
+  }
 
 }

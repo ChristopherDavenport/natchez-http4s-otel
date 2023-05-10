@@ -76,6 +76,7 @@ lazy val examples = project.in(file("examples"))
   .settings(
     scalacOptions        -= "-Xfatal-warnings",
     libraryDependencies ++= Seq(
+      // "io.chrisdavenport" %% "otel4s-local-otel" % "0.0-30e89e3-20230510T134128Z-SNAPSHOT",
       "org.typelevel"    %% "otel4s-java" % otel4sV,
       "io.opentelemetry" % "opentelemetry-exporter-otlp" % openTelemetryV % Runtime,
       "io.opentelemetry" % "opentelemetry-sdk-extension-autoconfigure" % s"${openTelemetryV}-alpha" % Runtime,
